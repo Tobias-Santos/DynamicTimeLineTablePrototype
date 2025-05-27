@@ -61,8 +61,26 @@
       display: none; /* Oculta o botão de inserir linha */
     }
 
+    .delete-column-button {
+      position: absolute;
+      top: -40px;
+      transform: translateX(-50%);
+      background-color: #f44336;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      cursor: pointer;
+      z-index: 10;
+    }
+
+    .delete-column-button:hover {
+      background-color: #d32f2f;
+    }
+
     .actions {
-      margin-bottom: 20px;
+      margin-bottom: 80px; /* Dobrado de 40px para 80px */
     }
 
     button {
@@ -181,7 +199,7 @@
     }
 
     function renderInsertButtons() {
-      container.querySelectorAll(".insert-button").forEach(btn => btn.remove());
+      container.querySelectorAll(".insert-button, .delete-column-button").forEach(btn => btn.remove());
 
       const firstRow = table.rows[0];
       if (!firstRow) return;
@@ -196,8 +214,14 @@
         insertBtn.textContent = "+";
         insertBtn.style.left = `${left}px`;
         insertBtn.onclick = () => insertColumnAt(i + 1);
-
         container.appendChild(insertBtn);
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.className = "delete-column-button";
+        deleteBtn.textContent = "x";
+        deleteBtn.style.left = `${left - rects[i].width / 2}px`;
+        deleteBtn.onclick = () => deleteColumnAt(i);
+        container.appendChild(deleteBtn);
       }
     }
 
@@ -206,6 +230,15 @@
         const cell = row.insertCell(index);
         cell.contentEditable = "true";
         cell.textContent = "Nova Célula";
+      }
+      setTimeout(renderInsertButtons, 0);
+    }
+
+    function deleteColumnAt(index) {
+      for (let row of table.rows) {
+        if (row.cells[index]) {
+          row.deleteCell(index);
+        }
       }
       setTimeout(renderInsertButtons, 0);
     }
