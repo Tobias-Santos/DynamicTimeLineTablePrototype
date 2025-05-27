@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Tabela Dinâmica com Exportação/Importação</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+    }
+
+    .table-container {
+      position: relative;
+      display: inline-block;
+    }
+
+    table {
+      border-collapse: collapse;
+    }
+
+    td {
+      border: 1px solid #555;
+      padding: 20px;
+      min-width: 100px;
+      text-align: center;
+      background-color: #f9f9f9;
+    }
+
+    td[contenteditable] {
+      background-color: #eef;
+    }
+
+    td img {
+      max-width: 100%;
+      max-height: 100px;
+    }
+
+    .insert-button {
+      position: absolute;
+      top: -20px;
+      transform: translateX(-50%);
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      cursor: pointer;
+      z-index: 10;
+    }
+
+    .insert-button:hover {
+      background-color: #45a049;
+    }
+
+    .delete-button {
+      display: none; /* Oculta os botões de exclusão */
+    }
+
+    .insert-row-button {
+      display: none; /* Oculta o botão de inserir linha */
+    }
+
+    .actions {
+      margin-bottom: 20px;
+    }
+
+    button {
+      margin-right: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Timeline Dinâmica com Salvar e Carregar</h2>
+
+  <div class="actions">
+    <button onclick="downloadTableData()">Salvar Timeline</button>
+    <input type="file" id="fileInput" accept=".json" style="display: none" />
+    <button onclick="document.getElementById('fileInput').click()">Carregar Timeline</button>
+  </div>
+
+  <div class="table-container" id="tableContainer">
+    <table id="dynamicTable">
+      <tr>
+        <td contenteditable="true">Célula 1A</td>
+        <td contenteditable="true">Célula 1B</td>
+      </tr>
+      <tr>
+        <td contenteditable="true">Célula 2A</td>
+        <td contenteditable="true">Célula 2B</td>
+      </tr>
+    </table>
+  </div>
+
+  <script>
+    const table = document.getElementById("dynamicTable");
+    const container = document.getElementById("tableContainer");
+
+    function renderInsertButtons() {
+      container.querySelectorAll(".insert-button").forEach(btn => btn.remove());
+
+      const firstRow = table.rows[0];
+      if (!firstRow) return;
+      const rects = Array.from(firstRow.cells).map(cell => cell.getBoundingClientRect());
+      const tableRect = table.getBoundingClientRect();
+
+      for (let i = 0; i < firstRow.cells.length; i++) {
+        const left = rects[i].right - tableRect.left;
+
+        const insertBtn = document.createElement("button");
+        insertBtn.className = "insert-button";
+        insertBtn.textContent = "+";
+        insertBtn.style.left = `${left}px`;
+        insertBtn.onclick = () => insertColumnAt(i + 1);
+
+        container.appendChild(insertBtn);
+      }
+    }
+
+    function insertColumnAt(index) {
+      for (let row of table.rows) {
+        const cell = row.insertCell(index);
+        cell.contentEditable = "true";
+        cell.textContent = "Nova Célula";
+      }
+      setTimeout(renderInsertButtons, 0);
+    }
+
+    function downloadTableData() {
+      const data = [];
+      for (let row of table.rows) {
+        const rowData = [];
+        for (let cell of row.cells) {
+          const img = cell.querySelector("img");
+          if (img) {
+            rowData.push({ type: "image", src: img.src });
+          } else {
+            rowData.push({ type: "text", content: cell.innerText });
+          }
+        }
+        data.push(rowData);
+      }
+
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "timeline.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    document.getElementById("fileInput").addEventListener("change", function(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = JSON.parse(e.target.result);
+          restoreTableFromData(data);
+        } catch (err) {
+          alert("Erro ao carregar o arquivo JSON.");
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    function restoreTableFromData(data) {
+      table.innerHTML = "";
+      for (let rowData of data) {
+        const row = table.insertRow();
+        for (let cellData of rowData) {
+          const cell = row.insertCell();
+          cell.contentEditable = "true";
+          if (cellData.type === "image") {
+            const img = document.createElement("img");
+            img.src = cellData.src;
+            cell.appendChild(img);
+          } else {
+            cell.innerText = cellData.content;
+          }
+        }
+      }
+      setTimeout(renderInsertButtons, 0);
+    }
+
+    table.addEventListener("contextmenu", function (event) {
+      event.preventDefault();
+      const cell = event.target.closest("td");
+      if (cell) {
+        if (cell.querySelector("img")) {
+          const removeImage = confirm("Deseja remover a imagem desta célula?");
+          if (removeImage) {
+            cell.innerHTML = ""; // Remove a imagem e limpa a célula
+          }
+        } else {
+          const fileInput = document.createElement("input");
+          fileInput.type = "file";
+          fileInput.accept = "image/*";
+          fileInput.style.display = "none";
+
+          fileInput.addEventListener("change", function () {
+            const file = fileInput.files[0];
+            if (file) {
+              const reader = new FileReader();
+              reader.onload = function (e) {
+                const img = document.createElement("img");
+                img.src = e.target.result;
+                cell.innerHTML = ""; // Limpa o conteúdo da célula
+                cell.appendChild(img);
+              };
+              reader.readAsDataURL(file);
+            }
+          });
+
+          document.body.appendChild(fileInput);
+          fileInput.click();
+          document.body.removeChild(fileInput);
+        }
+      }
+    });
+
+    window.addEventListener("load", () => {
+      renderInsertButtons();
+    });
+    window.addEventListener("resize", renderInsertButtons);
+  </script>
+
+</body>
+</html>
