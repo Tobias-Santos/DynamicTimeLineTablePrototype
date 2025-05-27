@@ -97,44 +97,37 @@
     const table = document.getElementById("dynamicTable");
     const container = document.getElementById("tableContainer");
 
-    function renderInsertButtons() {
-      container.querySelectorAll(".insert-button").forEach(btn => btn.remove());
+    async function compressImage(imageSrc) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.src = imageSrc;
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
 
-      const firstRow = table.rows[0];
-      if (!firstRow) return;
-      const rects = Array.from(firstRow.cells).map(cell => cell.getBoundingClientRect());
-      const tableRect = table.getBoundingClientRect();
+          // Define o tamanho do canvas
+          canvas.width = img.width;
+          canvas.height = img.height;
 
-      for (let i = 0; i < firstRow.cells.length; i++) {
-        const left = rects[i].right - tableRect.left;
+          // Desenha a imagem no canvas
+          ctx.drawImage(img, 0, 0, img.width, img.height);
 
-        const insertBtn = document.createElement("button");
-        insertBtn.className = "insert-button";
-        insertBtn.textContent = "+";
-        insertBtn.style.left = `${left}px`;
-        insertBtn.onclick = () => insertColumnAt(i + 1);
-
-        container.appendChild(insertBtn);
-      }
+          // Converte a imagem para JPEG com qualidade reduzida
+          const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.5); // Qualidade 50%
+          resolve(compressedDataUrl);
+        };
+      });
     }
 
-    function insertColumnAt(index) {
-      for (let row of table.rows) {
-        const cell = row.insertCell(index);
-        cell.contentEditable = "true";
-        cell.textContent = "Nova Célula";
-      }
-      setTimeout(renderInsertButtons, 0);
-    }
-
-    function downloadTableData() {
+    async function downloadTableData() {
       const data = [];
       for (let row of table.rows) {
         const rowData = [];
         for (let cell of row.cells) {
           const img = cell.querySelector("img");
           if (img) {
-            rowData.push({ type: "image", src: img.src });
+            const compressedSrc = await compressImage(img.src);
+            rowData.push({ type: "image", src: compressedSrc });
           } else {
             rowData.push({ type: "text", content: cell.innerText });
           }
@@ -183,6 +176,36 @@
             cell.innerText = cellData.content;
           }
         }
+      }
+      setTimeout(renderInsertButtons, 0);
+    }
+
+    function renderInsertButtons() {
+      container.querySelectorAll(".insert-button").forEach(btn => btn.remove());
+
+      const firstRow = table.rows[0];
+      if (!firstRow) return;
+      const rects = Array.from(firstRow.cells).map(cell => cell.getBoundingClientRect());
+      const tableRect = table.getBoundingClientRect();
+
+      for (let i = 0; i < firstRow.cells.length; i++) {
+        const left = rects[i].right - tableRect.left;
+
+        const insertBtn = document.createElement("button");
+        insertBtn.className = "insert-button";
+        insertBtn.textContent = "+";
+        insertBtn.style.left = `${left}px`;
+        insertBtn.onclick = () => insertColumnAt(i + 1);
+
+        container.appendChild(insertBtn);
+      }
+    }
+
+    function insertColumnAt(index) {
+      for (let row of table.rows) {
+        const cell = row.insertCell(index);
+        cell.contentEditable = "true";
+        cell.textContent = "Nova Célula";
       }
       setTimeout(renderInsertButtons, 0);
     }
